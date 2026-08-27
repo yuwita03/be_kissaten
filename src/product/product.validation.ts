@@ -1,3 +1,4 @@
+import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
 export class ProductValidation {
@@ -15,6 +16,24 @@ export class ProductValidation {
     categoryId: z.number().int().positive().optional(),
   });
 }
+export class CreateProductDTO extends createZodDto(ProductValidation.CREATE){}
+export class UpdateProductDTO extends createZodDto(ProductValidation.UPDATE){}
 
 export type CreateProductRequest = z.infer<typeof ProductValidation.CREATE>;
 export type UpdateProductRequest = z.infer<typeof ProductValidation.UPDATE>;
+
+export interface ProductResponse {
+  id: number;
+  name: string;
+  price: number;
+  image: string | null;
+  categoryId: number;
+  categoryName: string;
+}
+
+export interface ProductListResponse {
+  data: ProductResponse[];
+  total: number;
+  page: number;
+  limit: number;
+}

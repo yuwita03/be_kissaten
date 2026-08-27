@@ -12,23 +12,11 @@ import {
   ProductValidation,
   CreateProductRequest,
   UpdateProductRequest,
+  ProductResponse,
+  ProductListResponse
 } from './product.validation';
 
-export interface ProductResponse {
-  id: number;
-  name: string;
-  price: number;
-  image: string | null;
-  categoryId: number;
-  categoryName: string;
-}
 
-export interface ProductListResponse {
-  data: ProductResponse[];
-  total: number;
-  page: number;
-  limit: number;
-}
 
 @Injectable()
 export class ProductService {
@@ -68,32 +56,37 @@ export class ProductService {
     return this.toProductResponse(product);
   }
 
-  async findAll(
-    categoryId?: number,
-    page = 1,
-    limit = 10,
-  ): Promise<ProductListResponse> {
-    this.logger.debug('Fetching products', { categoryId, page, limit });
+async findAll(
+  categoryId?: number,
+  page = 1,
+  limit = 10,
+  search?: string,
+): Promise<ProductListResponse> {
+  this.logger.debug('Fetching products', { categoryId, page, limit, search });
 
-    const where = categoryId ? { categoryId } : {};
-    const [products, total] = await Promise.all([
-      this.prisma.product.findMany({
-        where,
-        include: { category: true },
-        orderBy: { id: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      this.prisma.product.count({ where }),
-    ]);
+  const where = {
+    ...(categoryId ? { categoryId } : {}),
+    ...(search ? { name: { contains: search, mode: 'insensitive' as const } } : {}),
+  };
 
-    return {
-      data: products.map((p) => this.toProductResponse(p)),
-      total,
-      page,
-      limit,
-    };
-  }
+  const [products, total] = await Promise.all([
+    this.prisma.product.findMany({
+      where,
+      include: { category: true },
+      orderBy: { id: 'desc' },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    this.prisma.product.count({ where }),
+  ]);
+
+  return {
+    data: products.map((p) => this.toProductResponse(p)),
+    total,
+    page,
+    limit,
+  };
+}
 
   async findById(id: number): Promise<ProductResponse> {
     this.logger.debug('Fetching product by ID', { id });

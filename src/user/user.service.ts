@@ -15,21 +15,11 @@ import {
   RegisterUserRequest,
   LoginUserRequest,
   UpdateUserRequest,
+  UserResponse,
+  LoginResponse
 } from './user.validation';
 import { Role } from '../common/roles.enum';
 import { User } from '../../generated/prisma/client';
-
-export interface UserResponse {
-  id: number;
-  email: string;
-  name: string;
-  role: Role;
-}
-
-export interface LoginResponse {
-  user: UserResponse;
-  accessToken: string;
-}
 
 @Injectable()
 export class UserService {
@@ -39,6 +29,7 @@ export class UserService {
     private readonly authService: AuthService,
     @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
   ) {}
+  
 
   async register(request: RegisterUserRequest): Promise<UserResponse> {
     this.logger.debug('Registering new user', { email: request.email });
@@ -47,10 +38,11 @@ export class UserService {
       UserValidation.REGISTER,
       request,
     );
-
+    
     const existingUser = await this.prisma.user.findUnique({
       where: { email: validated.email },
     });
+    
     if (existingUser) {
       throw new ConflictException('Email already registered');
     }

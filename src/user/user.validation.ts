@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { createZodDto } from 'nestjs-zod';
 import { Role } from '../common/roles.enum';
 
 
@@ -20,6 +21,10 @@ export class UserValidation {
     password: z.string().min(6).optional(),
   });
 }
+
+export class RegisterUserDto extends createZodDto(UserValidation.REGISTER) {}
+export class LoginUserDto extends createZodDto(UserValidation.LOGIN) {}
+export class UpdateUserDto extends createZodDto(UserValidation.UPDATE) {}
 
 export type RegisterUserRequest = z.infer<typeof UserValidation.REGISTER>;
 export type LoginUserRequest = z.infer<typeof UserValidation.LOGIN>;

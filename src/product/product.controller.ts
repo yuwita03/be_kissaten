@@ -1,31 +1,11 @@
+import { Controller, Post, Get, Patch, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
+import { ProductService } from './product.service';
 import {
-  Controller,
-  Post,
-  Get,
-  Patch,
-  Delete,
-  Param,
-  Body,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiBearerAuth,
-  ApiResponse,
-  ApiParam,
-  ApiQuery,
-} from '@nestjs/swagger';
-import {
-  ProductService,
-  ProductResponse,
-  ProductListResponse,
-} from './product.service';
-import type {
-  CreateProductRequest,
-  UpdateProductRequest,
+  CreateProductDTO,
+  UpdateProductDTO,
 } from './product.validation';
+import type { ProductResponse, ProductListResponse } from './product.validation';
 import { AuthGuard } from '../common/auth/auth.guard';
 import { RolesGuard } from '../common/auth/roles.guard';
 import { Roles } from '../common/auth/roles.decorator';
@@ -45,32 +25,32 @@ export class ProductController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 400, description: 'Category not found' })
-  async create(
-    @Body() request: CreateProductRequest,
-  ): Promise<ProductResponse> {
+  async create(@Body() request: CreateProductDTO): Promise<ProductResponse> {
     return this.productService.create(request);
   }
 
   @Get()
   @ApiOperation({
-    summary: 'List products with optional category filter and pagination',
+    summary: 'List products with optional category filter, search, and pagination',
   })
   @ApiQuery({ name: 'categoryId', required: false, type: 'number' })
+  @ApiQuery({ name: 'search', required: false, type: 'string' })
   @ApiQuery({ name: 'page', required: false, type: 'number', example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: 'number', example: 10 })
   @ApiResponse({ status: 200, description: 'List of products' })
   async findAll(
     @Query('categoryId') categoryId?: string,
+    @Query('search') search?: string,
     @Query('page') page = '1',
-    @Query('limit') limit = '10',
+    @Query('limit') limit = '9',
   ): Promise<ProductListResponse> {
     return this.productService.findAll(
       categoryId ? Number(categoryId) : undefined,
       Number(page),
       Number(limit),
+      search,
     );
   }
-
   @Get(':id')
   @ApiOperation({ summary: 'Get product detail' })
   @ApiParam({ name: 'id', type: 'number' })
@@ -93,7 +73,7 @@ export class ProductController {
   @ApiResponse({ status: 400, description: 'Category not found' })
   async update(
     @Param('id') id: string,
-    @Body() request: UpdateProductRequest,
+    @Body() request: UpdateProductDTO,
   ): Promise<ProductResponse> {
     return this.productService.update(Number(id), request);
   }

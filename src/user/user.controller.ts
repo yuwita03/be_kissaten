@@ -1,24 +1,12 @@
+import { Controller, Post, Get, Patch, Body, UseGuards, Request } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
+import { UserService } from './user.service';
 import {
-  Controller,
-  Post,
-  Get,
-  Patch,
-  Body,
-  UseGuards,
-  Request,
-} from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiBearerAuth,
-  ApiResponse,
-} from '@nestjs/swagger';
-import { UserService, UserResponse, LoginResponse } from './user.service';
-import type {
-  RegisterUserRequest,
-  LoginUserRequest,
-  UpdateUserRequest,
+  RegisterUserDto,
+  LoginUserDto,
+  UpdateUserDto,
 } from './user.validation';
+import type { UserResponse, LoginResponse } from './user.validation';
 import { AuthGuard } from '../common/auth/auth.guard';
 
 @ApiTags('Users')
@@ -30,7 +18,7 @@ export class UserController {
   @ApiOperation({ summary: 'Register new user' })
   @ApiResponse({ status: 201, description: 'User registered successfully' })
   @ApiResponse({ status: 409, description: 'Email already registered' })
-  async register(@Body() request: RegisterUserRequest): Promise<UserResponse> {
+  async register(@Body() request: RegisterUserDto): Promise<UserResponse> {
     return this.userService.register(request);
   }
 
@@ -38,7 +26,7 @@ export class UserController {
   @ApiOperation({ summary: 'User login' })
   @ApiResponse({ status: 200, description: 'Login successful' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
-  async login(@Body() request: LoginUserRequest): Promise<LoginResponse> {
+  async login(@Body() request: LoginUserDto): Promise<LoginResponse> {
     return this.userService.login(request);
   }
 
@@ -64,7 +52,7 @@ export class UserController {
   @ApiResponse({ status: 409, description: 'Email already registered' })
   async updateCurrent(
     @Request() req: { user: { sub: number } },
-    @Body() request: UpdateUserRequest,
+    @Body() request: UpdateUserDto,
   ): Promise<UserResponse> {
     return this.userService.updateUser(req.user.sub, request);
   }

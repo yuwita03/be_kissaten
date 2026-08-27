@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { createZodDto } from 'nestjs-zod';
 
 export class OrderValidation {
   static readonly CREATE = z.object({
@@ -23,7 +24,42 @@ export class OrderValidation {
   });
 }
 
+export class CreateOrderDTO extends createZodDto(OrderValidation.CREATE) {}
+export class MidtransNotificationDTO extends createZodDto(OrderValidation.MIDTRANS_NOTIFICATION) {}
+
 export type CreateOrderRequest = z.infer<typeof OrderValidation.CREATE>;
 export type MidtransNotificationRequest = z.infer<
   typeof OrderValidation.MIDTRANS_NOTIFICATION
 >;
+
+export interface OrderItemResponse {
+  id: number;
+  productId: number;
+  productName: string;
+  qty: number;
+  price: number;
+  subtotal: number;
+}
+
+export interface OrderResponse {
+  id: number;
+  userId: number | null;
+  customerName: string | null;
+  totalAmount: number;
+  snapToken: string | null;
+  paymentStatus: string;
+  createdAt: Date;
+  items: OrderItemResponse[];
+}
+
+export interface OrderListResponse {
+  data: OrderResponse[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface SnapTransactionResponse {
+  token: string;
+  redirect_url: string;
+}

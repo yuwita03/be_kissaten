@@ -1,3 +1,4 @@
+import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
 export class CategoryValidation {
@@ -10,5 +11,13 @@ export class CategoryValidation {
   });
 }
 
+export class CreateCategoryDTO extends createZodDto(CategoryValidation.CREATE){}
+export class UpdateCategoryDTO extends createZodDto(CategoryValidation.UPDATE){}
+
 export type CreateCategoryRequest = z.infer<typeof CategoryValidation.CREATE>;
 export type UpdateCategoryRequest = z.infer<typeof CategoryValidation.UPDATE>;
+
+export interface CategoryResponse {
+  id: number;
+  name: string;
+}

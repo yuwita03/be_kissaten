@@ -1,32 +1,8 @@
-import {
-  Controller,
-  Post,
-  Get,
-  Param,
-  Query,
-  Body,
-  UseGuards,
-  Request,
-  HttpCode,
-  HttpStatus,
-} from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiBearerAuth,
-  ApiResponse,
-  ApiParam,
-  ApiQuery,
-} from '@nestjs/swagger';
-import {
-  OrderService,
-  OrderResponse,
-  OrderListResponse,
-} from './order.service';
-import type {
-  CreateOrderRequest,
-  MidtransNotificationRequest,
-} from './order.validation';
+import { Controller, Post, Get, Param, Query, Body, UseGuards, Request, HttpCode, HttpStatus } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
+import { OrderService } from './order.service';
+import { CreateOrderDTO, MidtransNotificationDTO } from './order.validation';
+import type { OrderResponse, OrderListResponse } from './order.validation';
 import { AuthGuard } from '../common/auth/auth.guard';
 import { RolesGuard } from '../common/auth/roles.guard';
 import { Roles } from '../common/auth/roles.decorator';
@@ -50,7 +26,7 @@ export class OrderController {
   })
   async create(
     @Request() req: { user?: { sub: number; role: Role } },
-    @Body() request: CreateOrderRequest,
+    @Body() request: CreateOrderDTO,
   ): Promise<OrderResponse> {
     const user = req.user
       ? { id: req.user.sub, role: req.user.role }
@@ -103,7 +79,7 @@ export class OrderController {
     description: 'Invalid signature or notification',
   })
   async midtransWebhook(
-    @Body() notification: MidtransNotificationRequest,
+    @Body() notification: MidtransNotificationDTO,
   ): Promise<{ message: string }> {
     await this.orderService.handleMidtransNotification(notification);
     return { message: 'OK' };

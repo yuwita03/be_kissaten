@@ -1,25 +1,8 @@
-import {
-  Controller,
-  Post,
-  Get,
-  Patch,
-  Delete,
-  Param,
-  Body,
-  UseGuards,
-} from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiBearerAuth,
-  ApiResponse,
-  ApiParam,
-} from '@nestjs/swagger';
-import { CategoryService, CategoryResponse } from './category.service';
-import type {
-  CreateCategoryRequest,
-  UpdateCategoryRequest,
-} from './category.validation';
+import { Controller, Post, Get, Patch, Delete, Param, Body, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiParam } from '@nestjs/swagger';
+import { CategoryService } from './category.service';
+import { CreateCategoryDTO, UpdateCategoryDTO } from './category.validation';
+import type { CategoryResponse } from './category.validation';
 import { AuthGuard } from '../common/auth/auth.guard';
 import { RolesGuard } from '../common/auth/roles.guard';
 import { Roles } from '../common/auth/roles.decorator';
@@ -39,7 +22,7 @@ export class CategoryController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   async create(
-    @Body() request: CreateCategoryRequest,
+    @Body() request: CreateCategoryDTO,
   ): Promise<CategoryResponse> {
     return this.categoryService.create(request);
   }
@@ -63,7 +46,7 @@ export class CategoryController {
   @ApiResponse({ status: 404, description: 'Category not found' })
   async update(
     @Param('id') id: string,
-    @Body() request: UpdateCategoryRequest,
+    @Body() request: UpdateCategoryDTO,
   ): Promise<CategoryResponse> {
     return this.categoryService.update(Number(id), request);
   }

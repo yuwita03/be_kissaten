@@ -14,6 +14,9 @@ import {
   OrderValidation,
   CreateOrderRequest,
   MidtransNotificationRequest,
+  OrderResponse,
+  OrderListResponse,
+  SnapTransactionResponse
 } from './order.validation';
 import { Role } from '../common/roles.enum';
 import { v4 as uuidv4 } from 'uuid';
@@ -21,37 +24,7 @@ import { Snap } from 'midtrans-client';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 
-export interface OrderItemResponse {
-  id: number;
-  productId: number;
-  productName: string;
-  qty: number;
-  price: number;
-  subtotal: number;
-}
 
-export interface OrderResponse {
-  id: number;
-  userId: number | null;
-  customerName: string | null;
-  totalAmount: number;
-  snapToken: string | null;
-  paymentStatus: string;
-  createdAt: Date;
-  items: OrderItemResponse[];
-}
-
-export interface OrderListResponse {
-  data: OrderResponse[];
-  total: number;
-  page: number;
-  limit: number;
-}
-
-interface SnapTransactionResponse {
-  token: string;
-  redirect_url: string;
-}
 
 @Injectable()
 export class OrderService {
