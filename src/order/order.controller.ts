@@ -4,6 +4,7 @@ import { OrderService } from './order.service';
 import { CreateOrderDTO, MidtransNotificationDTO } from './order.validation';
 import type { OrderResponse, OrderListResponse } from './order.validation';
 import { AuthGuard } from '../common/auth/auth.guard';
+import { OptionalAuthGuard } from '../common/auth/optional-auth.guard';
 import { RolesGuard } from '../common/auth/roles.guard';
 import { Roles } from '../common/auth/roles.decorator';
 import { Role } from '../common/roles.enum';
@@ -14,15 +15,12 @@ export class OrderController {
   constructor(private readonly orderService: OrderService) {}
 
   @Post()
+  @UseGuards(OptionalAuthGuard)
   @ApiOperation({ summary: 'Create order (guest or authenticated)' })
   @ApiResponse({ status: 201, description: 'Order created successfully' })
   @ApiResponse({
     status: 400,
     description: 'Invalid request or product not found',
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized (if token provided but invalid)',
   })
   async create(
     @Request() req: { user?: { sub: number; role: Role } },
@@ -32,6 +30,20 @@ export class OrderController {
       ? { id: req.user.sub, role: req.user.role }
       : undefined;
     return this.orderService.create(request, user);
+  }
+
+  @Get('my')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get my order history' })
+  @ApiResponse({ status: 200, description: 'List of my orders' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async findMyOrders(
+    @Request() req: { user: { sub: number } },
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+  ): Promise<OrderListResponse> {
+    return this.orderService.findMyOrders(req.user.sub, Number(page), Number(limit));
   }
 
   @Get(':id')

@@ -18,6 +18,7 @@ export class OrderValidation {
   static readonly MIDTRANS_NOTIFICATION = z.object({
     transaction_status: z.string(),
     order_id: z.string(),
+    status_code: z.string().optional(),
     fraud_status: z.string().optional(),
     signature_key: z.string().optional(),
     gross_amount: z.string().optional(),

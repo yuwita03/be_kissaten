@@ -19,7 +19,6 @@ import {
   SnapTransactionResponse
 } from './order.validation';
 import { Role } from '../common/roles.enum';
-import { v4 as uuidv4 } from 'uuid';
 import { Snap } from 'midtrans-client';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
@@ -108,23 +107,22 @@ export class OrderService {
       };
     });
 
-    const orderId = uuidv4();
-    const order = await this.prisma.order.create({
-      data: {
-        userId,
-        customerName,
-        totalAmount,
-        items: {
-          create: orderItemsData,
-        },
-      },
-      include: { items: { include: { product: true } } },
-    });
+const order = await this.prisma.order.create({
+  data: {
+    userId,
+    customerName,
+    totalAmount,
+    items: {
+      create: orderItemsData,
+    },
+  },
+  include: { items: { include: { product: true } }, user: true },
+});
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     const snapResponse = (await this.snap.createTransaction({
       transaction_details: {
-        order_id: orderId,
+        order_id: order.id.toString(), // pakai id asli, bukan uuid random
         gross_amount: totalAmount,
       },
       customer_details: {
@@ -156,7 +154,7 @@ export class OrderService {
 
     const order = await this.prisma.order.findUnique({
       where: { id },
-      include: { items: { include: { product: true } } },
+      include: { items: { include: { product: true } }, user: true },
     });
     if (!order) {
       throw new NotFoundException('Order not found');
@@ -174,7 +172,7 @@ export class OrderService {
 
     const [orders, total] = await Promise.all([
       this.prisma.order.findMany({
-        include: { items: { include: { product: true } } },
+        include: { items: { include: { product: true } }, user: true },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
@@ -204,6 +202,7 @@ export class OrderService {
 
     const expectedSignature = this.generateSignature(
       validated.order_id,
+      validated.status_code || '',
       validated.gross_amount || '0',
       this.configService.get<string>('MIDTRANS_SERVER_KEY_SANDBOX') || '',
     );
@@ -268,10 +267,11 @@ export class OrderService {
 
   private generateSignature(
     orderId: string,
+    statusCode: string,
     grossAmount: string,
     serverKey: string,
   ): string {
-    const input = `${orderId}${grossAmount}${serverKey}`;
+    const input = `${orderId}${statusCode}${grossAmount}${serverKey}`;
     return crypto.createHash('sha512').update(input).digest('hex');
   }
 
@@ -283,6 +283,7 @@ export class OrderService {
     snapToken: string | null;
     paymentStatus: string;
     createdAt: Date;
+    user: { name: string } | null;
     items: Array<{
       id: number;
       productId: number;
@@ -293,7 +294,7 @@ export class OrderService {
     return {
       id: order.id,
       userId: order.userId,
-      customerName: order.customerName,
+      customerName: order.customerName || order.user?.name || null,
       totalAmount: order.totalAmount,
       snapToken: order.snapToken,
       paymentStatus: order.paymentStatus,
@@ -307,5 +308,27 @@ export class OrderService {
         subtotal: item.product.price * item.qty,
       })),
     };
+  }
+
+  async findMyOrders(userId: number, page = 1, limit = 10): Promise<OrderListResponse> {
+  this.logger.debug('Fetching my orders', { userId, page, limit });
+
+  const [orders, total] = await Promise.all([
+    this.prisma.order.findMany({
+      where: { userId },
+      include: { items: { include: { product: true } }, user: true },
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    this.prisma.order.count({ where: { userId } }),
+  ]);
+
+  return {
+    data: orders.map((o) => this.toOrderResponse(o)),
+    total,
+    page,
+    limit,
+  };
   }
 }
