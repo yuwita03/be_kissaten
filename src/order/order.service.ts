@@ -319,13 +319,13 @@ const order = await this.prisma.order.create({
 
   const [orders, total] = await Promise.all([
     this.prisma.order.findMany({
-      where: { userId },
+      where: { userId, paymentStatus: 'PAID' },
       include: { items: { include: { product: true } }, user: true },
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
       take: limit,
     }),
-    this.prisma.order.count({ where: { userId } }),
+    this.prisma.order.count({ where: { userId, paymentStatus: 'PAID' } }),
   ]);
 
   return {
