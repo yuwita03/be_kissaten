@@ -119,10 +119,12 @@ const order = await this.prisma.order.create({
   include: { items: { include: { product: true } }, user: true },
 });
 
+    const midtransOrderId = `${order.id}-${Date.now()}`;
+
 // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     const snapResponse = (await this.snap.createTransaction({
       transaction_details: {
-        order_id: order.id.toString(), // pakai id asli, bukan uuid random
+        order_id: midtransOrderId, // digabung timestamp biar selalu unik walau ID balik ke awal pas reset
         gross_amount: totalAmount,
       },
       customer_details: {
@@ -217,8 +219,10 @@ const order = await this.prisma.order.create({
       throw new BadRequestException('Invalid signature');
     }
 
+    const orderId = Number(validated.order_id.split('-')[0]);
+
     const order = await this.prisma.order.findFirst({
-      where: { id: Number(validated.order_id) },
+      where: { id: orderId },
     });
     if (!order) {
       this.logger.warn('Order not found for Midtrans notification', {
