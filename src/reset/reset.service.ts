@@ -13,11 +13,9 @@ export class ResetService {
   async resetDatabase() {
     console.log('🔄 Auto-reset: clearing database...');
 
-    await this.prisma.orderItem.deleteMany();
-    await this.prisma.order.deleteMany();
-    await this.prisma.product.deleteMany();
-    await this.prisma.category.deleteMany();
-    await this.prisma.user.deleteMany();
+    await this.prisma.$executeRawUnsafe(
+      `TRUNCATE TABLE "OrderItem", "Order", "Product", "Category", "User" RESTART IDENTITY CASCADE;`
+    );
 
     const adminPassword = await bcrypt.hash('adminpassword123', 10);
     const userPassword = await bcrypt.hash('userpassword123', 10);
@@ -34,7 +32,6 @@ export class ResetService {
     const catManualBrew = await this.prisma.category.create({ data: { name: 'Manual Brew' } });
     const catColdBrew = await this.prisma.category.create({ data: { name: 'Cold Brew' } });
     const catSpecialty = await this.prisma.category.create({ data: { name: 'Specialty Latte' } });
-
     await this.prisma.product.createMany({
       data: [
         { name: 'Single Espresso Shot', price: 20000, image: 'https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?auto=format&fit=crop&w=600&q=80', categoryId: catEspresso.id },
