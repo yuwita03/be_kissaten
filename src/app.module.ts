@@ -8,6 +8,7 @@ import { CategoryModule } from './category/category.module';
 import { ProductModule } from './product/product.module';
 import { OrderModule } from './order/order.module';
 import { ResetModule } from './reset/reset.module';
+import { CartModule } from './cart/cart.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { ResetModule } from './reset/reset.module';
     ProductModule,
     OrderModule,
     ResetModule,
+    CartModule,
   ],
   controllers: [],
   providers: [],

@@ -26,6 +26,7 @@ model User {
   name     String
   role     Role     @default(USER)
   orders   Order[]
+  cart Cart?
 }
 
 model Category {
@@ -42,6 +43,7 @@ model Product {
   categoryId Int
   category   Category    @relation(fields: [categoryId], references: [id])
   orderItems OrderItem[]
+  cartItems CartItem[]
 }
 
 model Order {
@@ -63,4 +65,21 @@ model OrderItem {
   qty       Int
   order     Order   @relation(fields: [orderId], references: [id])
   product   Product @relation(fields: [productId], references: [id])
+}
+
+model Cart {
+  id        Int        @id @default(autoincrement())
+  userId    Int        @unique
+  user      User       @relation(fields: [userId], references: [id])
+  items     CartItem[]
+  updatedAt DateTime   @updatedAt
+}
+
+model CartItem {
+  id        Int     @id @default(autoincrement())
+  cartId    Int
+  cart      Cart    @relation(fields: [cartId], references: [id])
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+  qty       Int
 }
