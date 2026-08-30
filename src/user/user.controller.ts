@@ -7,6 +7,7 @@ import {
   UpdateUserDto,
 } from './user.validation';
 import type { UserResponse, LoginResponse } from './user.validation';
+import { Throttle } from '@nestjs/throttler';
 import { AuthGuard } from '../common/auth/auth.guard';
 
 @ApiTags('Users')
@@ -15,6 +16,7 @@ export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Post('register')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Register new user' })
   @ApiResponse({ status: 201, description: 'User registered successfully' })
   @ApiResponse({ status: 409, description: 'Email already registered' })
@@ -23,6 +25,7 @@ export class UserController {
   }
 
   @Post('login')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'User login' })
   @ApiResponse({ status: 200, description: 'Login successful' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
