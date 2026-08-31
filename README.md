@@ -1,98 +1,159 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Neko Kissaten (猫喫茶)
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Full-stack e-commerce demo bertema kedai kopi Jepang. Dua repo terpisah (bukan monorepo): `be-kissaten` (backend) dan `fe-kissaten` (frontend).
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+> Demo publik — data direset otomatis tiap 3 jam ke kondisi seed awal. Pembayaran memakai Midtrans **sandbox** (simulasi, bukan transaksi nyata).
 
-## Description
+**Live:**
+- Frontend: `https://kissaten-orcin.vercel.app`
+- Backend API: `https://kissatenbe-production.up.railway.app`
+- API Docs (Swagger): `https://kissatenbe-production.up.railway.app/api/docs`
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+**Akun demo:**
+| Role | Email | Password |
+|---|---|---|
+| Admin | `admin@kissaten.jp` | `adminpassword123` |
+| User | `user@kissaten.jp` | `userpassword123` |
 
-## Project setup
+---
 
-```bash
-$ npm install
+## Backend — `be-kissaten`
+
+### Tech Stack
+- **NestJS** — framework utama
+- **Prisma ORM** + **PostgreSQL** (`@prisma/adapter-pg`)
+- **JWT** (Passport strategy) + **Guards** (Auth & Role-based)
+- **Zod** (`nestjs-zod`) — validasi request, bukan `class-validator`
+- **Midtrans Snap** — payment gateway
+- **Winston** — structured logging
+- **Swagger** — dokumentasi API otomatis
+- **Helmet** — security headers
+- **@nestjs/throttler** — rate limiting
+- **@nestjs/schedule** — cron job
+
+### Struktur Module
+```
+src/
+├── user/       — register, login, profile
+├── product/    — CRUD produk (admin), list & search (public)
+├── category/   — kategori produk
+├── order/      — checkout, riwayat order, webhook Midtrans
+├── cart/       — cart per user (login only)
+├── reset/      — cron auto-reset database tiap 3 jam
+└── common/     — PrismaService, ValidationService, Auth (Guards, Strategy)
 ```
 
-## Compile and run the project
+### Skema Database
+```
+User (id, email, password, name, role: ADMIN|USER)
+Category (id, name)
+Product (id, name, price, image, categoryId)
+Order (id, userId?, customerName, totalAmount, snapToken, paymentStatus, createdAt)
+OrderItem (id, orderId, productId, qty)
+Cart (id, userId [unique])
+CartItem (id, cartId, productId, qty)
+```
+Role bukan tabel terpisah — cukup kolom `role` di `User`. Order boleh tanpa `userId` (guest checkout).
 
-```bash
-# development
-$ npm run start
+### Autentikasi & Otorisasi
+- JWT manual (bukan session), token dicek lewat `AuthGuard` (Passport `jwt` strategy)
+- `RolesGuard` + `@Roles(Role.ADMIN)` decorator buat endpoint admin-only
+- Register selalu hardcode `role: USER` — field `role` tidak ada di schema Zod register, jadi tidak bisa di-override lewat request body (dicek & aman dari privilege escalation)
 
-# watch mode
-$ npm run start:dev
+### Payment Flow (Midtrans)
+1. `POST /orders` → order dibuat status `PENDING`, `order_id` yang dikirim ke Midtrans digabung timestamp (`{orderId}-{timestamp}`) supaya selalu unik meski ID Order kembali ke angka kecil setelah auto-reset
+2. Snap token disimpan di `Order.snapToken`, dipakai FE untuk buka popup Midtrans
+3. Midtrans kirim notifikasi ke `POST /orders/webhook/midtrans` — signature diverifikasi (SHA512) sebelum status order diupdate jadi `PAID`/`FAILED`
+4. Kalau user tutup popup tanpa bayar, order tetap `PENDING` — FE punya tombol "Bayar Sekarang" di halaman Order History yang membuka ulang Snap pakai `snapToken` yang sama
 
-# production mode
-$ npm run start:prod
+### Auto-Reset (Cron)
+`@Cron(CronExpression.EVERY_3_HOURS)` di `ResetService`:
+```sql
+TRUNCATE TABLE "CartItem","Cart","OrderItem","Order","Product","Category","User"
+RESTART IDENTITY CASCADE;
+```
+`RESTART IDENTITY` memastikan auto-increment ID balik ke 1, bukan cuma `DELETE` (yang tidak reset sequence). Setelah truncate, data seed (admin, user, kategori, produk) dibuat ulang.
+
+### Security
+- **Helmet** — CSP, X-Frame-Options, HSTS, dll, dengan whitelist domain eksternal (Cloudinary, Unsplash, Midtrans sandbox)
+- **Rate limiting** — global 30 req/menit; endpoint `login`/`register` diperketat jadi 5 req/menit via `@Throttle`
+- **`.env` tidak pernah masuk Git** (dicek lewat `git log --all --full-history`)
+- Hasil scan securityheaders.com: header lengkap terpasang di kedua layer (BE & FE)
+
+### Testing
+Unit test (Jest) untuk service dengan business logic:
+- `CartService` — tambah/update/hapus item, hitung total, error handling (produk/item tidak ditemukan)
+- `UserService` — register (termasuk verifikasi role selalu `USER`), login, update profil (termasuk conflict email)
+
+Pola: mock `PrismaService` & dependency lain manual (bukan `TestingModule` penuh), fokus ke isolasi logic per method.
+
+---
+
+## Frontend — `fe-kissaten`
+
+### Tech Stack
+- **React + Vite + TypeScript**
+- **Tailwind CSS**
+- **Zustand** — state management (Auth, Cart, Product, Order), migrasi dari Context API
+- **React Router**
+- **Midtrans Snap.js** — loaded via script tag di `index.html`
+
+### Struktur
+```
+src/
+├── pages/       — Home, Menu, Story, Contact, Admin, Login, History
+├── components/  — Navbar, Footer, ProductCard, CartDrawer, VideoHero, dll
+├── store/       — Zustand stores (authStore, cartStore, productStore, orderStore)
+├── service/     — HTTP layer per domain (product, category, order, user)
+├── context/     — ThemeContext (dark/light — tetap pakai Context API)
+└── lib/         — api.ts (axios instance, base URL dari VITE_API_URL)
 ```
 
-## Run tests
+### State Management
+- **Zustand** untuk state yang butuh dipakai lintas komponen & persist logic (cart, auth, product list, order)
+- **Context API** dipertahankan khusus untuk `ThemeContext` (state sederhana, jarang berubah)
+- Search & filter kategori di halaman Menu dikirim ke server (bukan filter di client-side), pakai debounce 400ms
 
-```bash
-# unit tests
-$ npm run test
+### Performance
+- **Code splitting** per halaman lewat `React.lazy` + `Suspense` — halaman berat (Admin) tidak ikut ter-load di bundle awal
+- Video Hero: satu elemen `<video>` (sebelumnya duplikat 2x untuk light/dark tema), URL Cloudinary dengan transformasi (`q_70,w_1920,c_limit,vc_h264`), `poster` image, `preload="metadata"`
+- Gambar produk: `loading="lazy"`, sumber Unsplash dengan `auto=format` (auto-serve WebP/AVIF)
+- Skor PageSpeed (mobile) naik dari 58 → 72+ setelah optimasi di atas
 
-# e2e tests
-$ npm run test:e2e
+### Auth Flow
+- Login → JWT disimpan, auto-attach ke request lewat interceptor `api.ts`
+- Checkout: kalau user login, nama otomatis terisi dari akun (read-only); guest tetap isi manual
+- Order History: order status `PENDING` bisa dibayar ulang lewat `snapToken` yang sama tanpa membuat order baru
 
-# test coverage
-$ npm run test:cov
-```
+---
 
 ## Deployment
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+| | Platform | Catatan |
+|---|---|---|
+| Backend | Railway | PostgreSQL managed di project yang sama; env var `DATABASE_URL` pakai reference `${{Postgres.DATABASE_URL}}` |
+| Frontend | Vercel | Auto-deploy dari branch `main`; env var `VITE_API_URL` menunjuk ke URL Railway |
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+Kedua repo di-mirror ke dua akun GitHub berbeda (dual remote: `origin` & `origin2`) sebagai backup.
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+### Environment Variables (Backend)
+```
+DATABASE_URL
+JWT_SECRET
+MIDTRANS_SERVER_KEY_SANDBOX / MIDTRANS_CLIENT_KEY_SANDBOX
+MIDTRANS_SERVER_KEY_PROD / MIDTRANS_CLIENT_KEY_PROD   (diisi sandbox juga — Railway force NODE_ENV=production di level container, tidak bisa di-override dari UI)
+NODE_ENV
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+### Environment Variables (Frontend)
+```
+VITE_API_URL
+```
 
-## Resources
+---
 
-Check out a few resources that may come in handy when working with NestJS:
+## Catatan Desain/Trade-off
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+- **Cart disimpan client-side** (Zustand, bukan tabel `Cart` di server) untuk guest — tabel `Cart`/`CartItem` di database hanya dipakai untuk user yang login, sengaja tidak sinkron lintas device demi menjaga scope demo tetap simpel
+- **CORS `origin: true`** — sengaja longgar karena ini demo publik, bukan API privat
+- **Midtrans PROD key diisi sandbox** — workaround karena Railway memaksa `NODE_ENV=production` di level platform, bukan bug aplikasi
