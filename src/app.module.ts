@@ -5,6 +5,10 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { WinstonModule } from 'nest-winston';
 import * as winston from 'winston';
+
+import { CacheModule } from '@nestjs/cache-manager';
+import { createKeyv } from '@keyv/redis';
+
 import { UserModule } from './user/user.module';
 import { CategoryModule } from './category/category.module';
 import { ProductModule } from './product/product.module';
@@ -15,6 +19,16 @@ import { CartModule } from './cart/cart.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+
+    // 2. Registrasi CacheModule menggunakan ConfigService
+    CacheModule.register({
+      isGlobal: true,
+      stores: [
+        createKeyv('redis://localhost:6379'),
+      ],
+      ttl: 60 * 1000,
+    }),
+
     ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([
       {

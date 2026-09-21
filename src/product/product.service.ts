@@ -5,6 +5,8 @@ import {
 } from '@nestjs/common';
 import { Logger } from 'winston';
 import { Inject } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { PrismaService } from '../common/prisma.service';
 import { ValidationService } from '../common/validation.service';
@@ -24,6 +26,7 @@ export class ProductService {
     private readonly prisma: PrismaService,
     private readonly validationService: ValidationService,
     @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
   async create(request: CreateProductRequest): Promise<ProductResponse> {
@@ -64,9 +67,15 @@ async findAll(
 ): Promise<ProductListResponse> {
   this.logger.debug('Fetching products', { categoryId, page, limit, search });
 
+  const cacheKey = `products:${categoryId ?? 'all'}:${page}:${limit}:${search ?? ''}`;
+
+  const cached = await this.cacheManager.get<ProductListResponse>(cacheKey);
+
   const where = {
     ...(categoryId ? { categoryId } : {}),
-    ...(search ? { name: { contains: search, mode: 'insensitive' as const } } : {}),
+    ...(search
+      ? { name: { contains: search, mode: 'insensitive' as const } }
+      : {}),
   };
 
   const [products, total] = await Promise.all([
@@ -80,12 +89,16 @@ async findAll(
     this.prisma.product.count({ where }),
   ]);
 
-  return {
+  const result: ProductListResponse = {
     data: products.map((p) => this.toProductResponse(p)),
     total,
     page,
     limit,
   };
+
+  await this.cacheManager.set(cacheKey, result, 60 * 1000);
+
+  return result;
 }
 
   async findById(id: number): Promise<ProductResponse> {

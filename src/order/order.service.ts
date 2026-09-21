@@ -169,6 +169,40 @@ const order = await this.prisma.order.create({
     return this.toOrderResponse(order);
   }
 
+  async createPaymentToken(
+    id: number,
+    user: { id: number; role: Role },
+  ): Promise<{ snapToken: string }> {
+    const order = await this.prisma.order.findUnique({
+      where: { id },
+      include: { user: true },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    if (user.role !== Role.ADMIN && order.userId !== user.id) {
+      throw new ForbiddenException('Access denied');
+    }
+    if (order.paymentStatus === 'PAID') {
+      throw new BadRequestException('Order is already paid');
+    }
+
+    const snapResponse = (await this.snap.createTransaction({
+      transaction_details: {
+        order_id: `${order.id}-${Date.now()}`,
+        gross_amount: order.totalAmount,
+      },
+      customer_details: {
+        first_name: order.customerName || order.user?.name || 'Guest',
+      },
+    })) as SnapTransactionResponse;
+
+    await this.prisma.order.update({
+      where: { id: order.id },
+      data: { snapToken: snapResponse.token, paymentStatus: 'PENDING' },
+    });
+
+    return { snapToken: snapResponse.token };
+  }
+
   async findAll(page = 1, limit = 10): Promise<OrderListResponse> {
     this.logger.debug('Fetching all orders', { page, limit });
 
@@ -248,10 +282,8 @@ const order = await this.prisma.order.create({
       case 'deny':
       case 'cancel':
       case 'expire':
-        paymentStatus = 'FAILED';
-        break;
       case 'failure':
-        paymentStatus = 'FAILED';
+        paymentStatus = 'PENDING';
         break;
     }
 
@@ -319,13 +351,13 @@ const order = await this.prisma.order.create({
 
   const [orders, total] = await Promise.all([
     this.prisma.order.findMany({
-      where: { userId, paymentStatus: 'PAID' },
+      where: { userId },
       include: { items: { include: { product: true } }, user: true },
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
       take: limit,
     }),
-    this.prisma.order.count({ where: { userId, paymentStatus: 'PAID' } }),
+    this.prisma.order.count({ where: { userId } }),
   ]);
 
   return {

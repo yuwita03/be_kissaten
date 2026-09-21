@@ -65,6 +65,21 @@ export class OrderController {
     });
   }
 
+  @Post(':id/payment')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create a new payment token for an unpaid order' })
+  @ApiParam({ name: 'id', type: 'number' })
+  async createPaymentToken(
+    @Request() req: { user: { sub: number; role: Role } },
+    @Param('id') id: string,
+  ): Promise<{ snapToken: string }> {
+    return this.orderService.createPaymentToken(Number(id), {
+      id: req.user.sub,
+      role: req.user.role,
+    });
+  }
+
   @Get()
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
