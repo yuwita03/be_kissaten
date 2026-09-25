@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config'
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
@@ -21,12 +21,17 @@ import { CartModule } from './cart/cart.module';
     ConfigModule.forRoot({ isGlobal: true }),
 
     // 2. Registrasi CacheModule menggunakan ConfigService
-    CacheModule.register({
+CacheModule.registerAsync({
       isGlobal: true,
-      stores: [
-        createKeyv('redis://localhost:6379'),
-      ],
-      ttl: 60 * 1000,
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => {
+        const redisUrl = configService.get<string>('REDIS_URL') || 'redis://localhost:6379';
+        return {
+          stores: [createKeyv(redisUrl)],
+          ttl: 60 * 1000,
+        };
+      },
     }),
 
     ScheduleModule.forRoot(),

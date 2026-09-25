@@ -1,6 +1,26 @@
 services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kissaten-api
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgresql://postgres:postgres@host.docker.internal:5432/kissaten?schema=public
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      MIDTRANS_SERVER_KEY_SANDBOX: ${MIDTRANS_SERVER_KEY_SANDBOX}
+      MIDTRANS_CLIENT_KEY_SANDBOX: ${MIDTRANS_CLIENT_KEY_SANDBOX}
+    depends_on:
+      redis:
+        condition: service_started
+
   redis:
     image: redis:7-alpine
+    container_name: kissaten-redis
     ports:
       - "6379:6379"
     volumes:

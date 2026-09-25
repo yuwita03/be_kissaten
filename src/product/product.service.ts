@@ -58,25 +58,33 @@ export class ProductService {
 
     return this.toProductResponse(product);
   }
-
+  
 async findAll(
   categoryId?: number,
   page = 1,
   limit = 10,
   search?: string,
 ): Promise<ProductListResponse> {
-  this.logger.debug('Fetching products', { categoryId, page, limit, search });
-
-  const cacheKey = `products:${categoryId ?? 'all'}:${page}:${limit}:${search ?? ''}`;
-
-  const cached = await this.cacheManager.get<ProductListResponse>(cacheKey);
+  this.logger.debug('Fetching products', {
+    categoryId,
+    page,
+    limit,
+    search,
+  });
 
   const where = {
     ...(categoryId ? { categoryId } : {}),
     ...(search
-      ? { name: { contains: search, mode: 'insensitive' as const } }
+      ? {
+          name: {
+            contains: search,
+            mode: 'insensitive' as const,
+          },
+        }
       : {}),
   };
+
+  console.log('PRODUCT: sebelum query');
 
   const [products, total] = await Promise.all([
     this.prisma.product.findMany({
@@ -86,21 +94,19 @@ async findAll(
       skip: (page - 1) * limit,
       take: limit,
     }),
+
     this.prisma.product.count({ where }),
   ]);
 
-  const result: ProductListResponse = {
+  console.log('PRODUCT: sesudah query');
+
+  return {
     data: products.map((p) => this.toProductResponse(p)),
     total,
     page,
     limit,
   };
-
-  await this.cacheManager.set(cacheKey, result, 60 * 1000);
-
-  return result;
 }
-
   async findById(id: number): Promise<ProductResponse> {
     this.logger.debug('Fetching product by ID', { id });
 
