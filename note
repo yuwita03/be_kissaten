@@ -1,0 +1,18 @@
+ada token yang membuat midtrans bisa di panggil lagi di order yang pending,
+dimana pending itu belum di bayarkan tapi tran
+
+Product
+  ↓
+Cart
+  ↓
+Checkout
+  ↓
+Order
+  ↓
+Midtrans
+  ↓
+Webhook
+  ↓
+PAID
+  ↓`
+Stock berkurang

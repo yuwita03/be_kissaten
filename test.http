@@ -1,0 +1,11 @@
+### Get all categories
+GET http://localhost:8080/categories
+Accept: application/json
+
+### Get categories with pagination
+GET http://localhost:8080/categories?page=1&limit=10
+Accept: application/json
+
+### Search categories
+GET http://localhost:8080/categories?search=coffee&page=1&limit=10
+Accept: application/json

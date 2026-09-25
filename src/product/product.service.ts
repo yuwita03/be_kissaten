@@ -59,32 +59,32 @@ export class ProductService {
     return this.toProductResponse(product);
   }
   
-  async findAll(
-    categoryId?: number,
-    page = 1,
-    limit = 10,
-    search?: string,
-  ): Promise<ProductListResponse> {
-    this.logger.debug('Fetching products', { categoryId, page, limit, search });
+async findAll(
+  categoryId?: number,
+  page = 1,
+  limit = 10,
+  search?: string,
+): Promise<ProductListResponse> {
+  this.logger.debug('Fetching products', {
+    categoryId,
+    page,
+    limit,
+    search,
+  });
 
-    const cacheKey = `products:${categoryId ?? 'all'}:${page}:${limit}:${search ?? ''}`;
-
-    // 1. Ambil dari cache
-    const cached = await this.cacheManager.get<ProductListResponse>(cacheKey);
-    
-    // PERBAIKAN: Jika ada cache, langsung return!
-    if (cached) {
-      this.logger.debug('Returning products from cache');
-      return cached;
-    }
-
-  // 2. Jika tidak ada di cache, query ke Database
   const where = {
     ...(categoryId ? { categoryId } : {}),
     ...(search
-      ? { name: { contains: search, mode: 'insensitive' as const } }
+      ? {
+          name: {
+            contains: search,
+            mode: 'insensitive' as const,
+          },
+        }
       : {}),
   };
+
+  console.log('PRODUCT: sebelum query');
 
   const [products, total] = await Promise.all([
     this.prisma.product.findMany({
@@ -94,20 +94,18 @@ export class ProductService {
       skip: (page - 1) * limit,
       take: limit,
     }),
+
     this.prisma.product.count({ where }),
   ]);
 
-  const result: ProductListResponse = {
+  console.log('PRODUCT: sesudah query');
+
+  return {
     data: products.map((p) => this.toProductResponse(p)),
     total,
     page,
     limit,
   };
-
-  // 3. Simpan hasil ke cache
-  await this.cacheManager.set(cacheKey, result, 60 * 1000);
-
-  return result;
 }
   async findById(id: number): Promise<ProductResponse> {
     this.logger.debug('Fetching product by ID', { id });

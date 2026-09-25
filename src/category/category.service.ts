@@ -1,30 +1,45 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { Logger } from 'winston';
+import {
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+
 import { Inject } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
+
+import { Logger } from 'winston';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
+
 import { PrismaService } from '../common/prisma.service';
 import { ValidationService } from '../common/validation.service';
+
 import {
   CategoryValidation,
   CreateCategoryRequest,
   UpdateCategoryRequest,
+  CategoryResponse,
+  CategoryListResponse,
 } from './category.validation';
-
-export interface CategoryResponse {
-  id: number;
-  name: string;
-}
 
 @Injectable()
 export class CategoryService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly validationService: ValidationService,
-    @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
+
+    @Inject(WINSTON_MODULE_PROVIDER)
+    private readonly logger: Logger,
+
+    @Inject(CACHE_MANAGER)
+    private readonly cacheManager: Cache,
   ) {}
 
-  async create(request: CreateCategoryRequest): Promise<CategoryResponse> {
-    this.logger.debug('Creating category', { name: request.name });
+  async create(
+    request: CreateCategoryRequest,
+  ): Promise<CategoryResponse> {
+    this.logger.debug('Creating category', {
+      name: request.name,
+    });
 
     const validated = this.validationService.validate(
       CategoryValidation.CREATE,
@@ -32,7 +47,9 @@ export class CategoryService {
     );
 
     const category = await this.prisma.category.create({
-      data: { name: validated.name },
+      data: {
+        name: validated.name,
+      },
     });
 
     this.logger.info('Category created successfully', {
@@ -42,15 +59,50 @@ export class CategoryService {
     return this.toCategoryResponse(category);
   }
 
-  async findAll(): Promise<CategoryResponse[]> {
-    this.logger.debug('Fetching all categories');
+async findAll(
+  page = 1,
+  limit = 10,
+  search?: string,
+): Promise<CategoryListResponse> {
+  this.logger.debug('Fetching categories', {
+    page,
+    limit,
+    search,
+  });
 
-    const categories = await this.prisma.category.findMany({
-      orderBy: { id: 'asc' },
-    });
+  const where = search
+    ? {
+        name: {
+          contains: search,
+          mode: 'insensitive' as const,
+        },
+      }
+    : {};
 
-    return categories.map((c) => this.toCategoryResponse(c));
-  }
+  const [categories, total] = await Promise.all([
+    this.prisma.category.findMany({
+      where,
+      orderBy: {
+        id: 'asc',
+      },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+
+    this.prisma.category.count({
+      where,
+    }),
+  ]);
+
+  return {
+    data: categories.map((category) =>
+      this.toCategoryResponse(category),
+    ),
+    total,
+    page,
+    limit,
+  };
+}
 
   async update(
     id: number,
@@ -63,17 +115,24 @@ export class CategoryService {
       request,
     );
 
-    const category = await this.prisma.category.findUnique({ where: { id } });
+    const category = await this.prisma.category.findUnique({
+      where: { id },
+    });
+
     if (!category) {
       throw new NotFoundException('Category not found');
     }
 
     const updated = await this.prisma.category.update({
       where: { id },
-      data: { name: validated.name ?? category.name },
+      data: {
+        name: validated.name ?? category.name,
+      },
     });
 
-    this.logger.info('Category updated successfully', { id });
+    this.logger.info('Category updated successfully', {
+      id,
+    });
 
     return this.toCategoryResponse(updated);
   }
@@ -81,20 +140,30 @@ export class CategoryService {
   async delete(id: number): Promise<void> {
     this.logger.debug('Deleting category', { id });
 
-    const category = await this.prisma.category.findUnique({ where: { id } });
+    const category = await this.prisma.category.findUnique({
+      where: { id },
+    });
+
     if (!category) {
       throw new NotFoundException('Category not found');
     }
 
-    await this.prisma.category.delete({ where: { id } });
+    await this.prisma.category.delete({
+      where: { id },
+    });
 
-    this.logger.info('Category deleted successfully', { id });
+    this.logger.info('Category deleted successfully', {
+      id,
+    });
   }
 
   private toCategoryResponse(category: {
     id: number;
     name: string;
   }): CategoryResponse {
-    return { id: category.id, name: category.name };
+    return {
+      id: category.id,
+      name: category.name,
+    };
   }
 }
